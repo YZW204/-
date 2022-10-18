@@ -13,50 +13,36 @@ unordered_map<string, bool> vis;
 unordered_map<string, string>pre;
 stack<string> st;
 typedef pair<int, int> PII;
+typedef pair<int, string> PIS;
 int dx[4] = { -1,0,1,0 };
 int dy[4] = { 0,1,0,-1 };
-int ord[10] ;
-int a[4][4];
-vector<string> adr(10); //图片序号
+int ord[10] ;//图片序号
+vector<string> adr(10); 
 vector<Mat> images(9);//图片的地址
 
-//把字符串转换成数组
-void sToA(string s)
-{
+//判断是否能构成八数码
+bool isPossible(string s) {
 	int num = 0;
-	for (int i = 1; i <= 3; i++) {
+	for (int i = 0; i < 9; i++) {
 
-		for (int j = 1; j <= 3; j++) {
-			a[i][j] = s[num] - '0';
-			num++;
+		for (int j = i; j < 9; j++) {
+			if (ord[i] > ord[j] && ord[i] != 0 && ord[j] != 0) num++;
 		}
 	}
-}
-//获取零的坐标
-PII getZero() {
-	for (int i = 1; i <=3; i++) {
-
-		for (int j = 1; j <= 3 ; j++) {
-			if (a[i][j] == 0) return { i,j };
-		}
-	}
+	return num % 2==0;
 
 }
+//把字符串转换成数组
+
 //把数组转换成字符串
 string getS() {
 	string s = "";
-	for (int i = 1; i <= 3; i++) {
-		for (int j = 1; j <= 3; j++) {
-			s += to_string(a[i][j]);
-		}
+	for (int i = 0; i <9 ; i++) {		
+			s += to_string(ord[i]);	
 	}
 	return s;
 }
 
-//交换数组的元素
-void swapA(int ax,int ay,int bx,int by) {
-	swap(a[ax][ay], a[bx][by]);
-}
 
 //宽搜
 bool bfs() {
@@ -70,19 +56,25 @@ bool bfs() {
 		s = q.front(); q.pop();
 		
 		if (s == "123456780") break;
-		sToA(s);
-		PII t = getZero();
+		int tx, ty;
+		for (int i = 0; i < 9; i++) {
+			if (s[i] == '0') {
+				tx = i / 3, ty = i % 3;
+				break;
+			}
+		}
+		
 		for (int i = 0; i < 4; i++) {
-			int x = t.first + dx[i], y = t.second + dy[i];
-			if (x <= 0 || y <= 0 || x > 3 || y > 3) continue;
-			swapA(t.first, t.second, x, y);
-			string s1	=getS();
+			string s1 = s;
+			int x = tx + dx[i], y = ty + dy[i];
+			if (x < 0 || y < 0 || x >=3 || y >=3) continue;
+			swap(s1[tx*3+ty], s1[x*3+y]);
+			
 			 if (!vis[s1]) {
-				 q.push(s1);
+				q.push(s1);
 				vis[s1] = true;
 				pre[s1] = s;
 			}
-			 swapA(t.first, t.second, x, y);
 
 		}
 
@@ -90,6 +82,54 @@ bool bfs() {
 	}
 	return s == "123456780";
 	
+}
+
+//A*的估量函数
+int getH(string s) {
+	int res = 0;
+	for (int i = 0; i < 9; i++) {
+		if (s[i] != '0') {
+			int t = s[i] - '1';
+			res += abs(t / 3 - i / 3) + abs(t % 3 - i % 3);
+		}
+	}
+	return res;
+}
+//A*算法
+void Astar() {
+	priority_queue<PIS,vector<PIS>,greater<PIS> > q;
+	unordered_map<string, int> dis;
+	q.push({ 0,getS() });
+	while (!q.empty()) {
+		PIS t = q.top(); q.pop();
+		int w = t.first;
+		string s = t.second;
+		if (s == "123456780") break;
+		int tx, ty;
+		for (int i = 0; i < 9; i++) {
+			if (s[i] == '0') {
+				tx = i / 3, ty = i % 3;
+				break;
+			}
+		}
+
+		for (int i = 0; i < 4; i++) {
+			int x = tx + dx[i], y = ty + dy[i];
+			if (x < 0 || y < 0 || x >= 3 || y >= 3) continue;
+			string s1 = s;
+			swap(s1[tx * 3 + ty], s1[x * 3 + y]);
+			if (dis.count(s1)==0||dis[s1]>dis[s]+1) {
+			
+				dis[s1] = dis[s] + 1;
+				q.push({ getH(s1)+dis[s1],s1});
+				pre[s1] = s;
+			}
+
+		}
+
+
+	}
+
 }
 
 
@@ -133,8 +173,14 @@ void mergeImage(Mat& dst, vector<Mat>& images)
 	}
 }
 
-//把整个过程展示出来（栈里面的元素取出来，重复输出）
+//把整个过程展示出来（栈里面的元素取出来输出）
 void toProcess(Mat &dst) {
+	string s = "123456780";
+	while (pre[s] != "") {
+		st.push(s);
+		s = pre[s];
+	}
+	st.push(s);
 	int step = 0;
 	while (st.size()>1) {
 		
@@ -155,7 +201,7 @@ void toProcess(Mat &dst) {
 		imshow("dst", dst); 
 		waitKey(500);
 	}
-	string s = st.top(); st.pop();
+	 s = st.top(); st.pop();
 	cout << "第" << ++step << "步  " << s << '\n';
 	cout << "图片序号:\n";
 	for (int i = 0; i < 9; i++) {
@@ -171,6 +217,8 @@ void toProcess(Mat &dst) {
 
 	waitKey(0);
 }
+
+//初始化当前的一些变量
 void init() {
 	int o[] = {2, 1, 4, 3, 5, 0, 8, 6, 7};
 	vis.clear();
@@ -188,9 +236,8 @@ void init() {
 	}
 	printf("当前顺序：\n");
 
-	for (int i = 1, num = 0; i <= 3; i++) {
-		for (int j = 1; j <= 3; j++, num++) a[i][j] = ord[num],cout<<ord[num]<<" ";
-		
+	for (int i = 0; i < 9; i++) {
+		 cout<<ord[i]<<" ";	
 	}
 	cout << "\n";
 }
@@ -199,27 +246,34 @@ int main()
 {
 	
 	Mat dst;
+	string boy = "./yiyandingzhen/0";
+	string girl = "./girl/0";
+	string path = boy;
+	printf("选择美女图片（1）帅哥（0）\n");
+	int flag = 1;
+	scanf("%d", &flag);
+	if (flag) path = girl;
+	else path = boy;
+
+	for (int i = 0; i < 9; i++) {
+		adr[i] = path + to_string(i) + ".png";
+	}
 	
-	adr[0] = "./yiyandingzhen/00.png";
-	adr[1] = "./yiyandingzhen/01.png";
-	adr[2] = "./yiyandingzhen/02.png";
-	adr[3] = "./yiyandingzhen/03.png";
-	adr[4] = "./yiyandingzhen/04.png";
-	adr[5] = "./yiyandingzhen/05.png";
-	adr[6] = "./yiyandingzhen/06.png";
-	adr[7] = "./yiyandingzhen/07.png";
-	adr[8] = "./yiyandingzhen/08.png";
-	
-	init();
 	while (1) {
-		if (bfs()) {
-			cout << "成功了\n";
-			string s = "123456780";
-			while (pre[s] != "") {
-				st.push(s);
-				s = pre[s];
+		init();
+		string s = getS();
+		if (isPossible(s)) {
+			printf("选择使用什么算法 0(BFS),1(Astart)\n");
+			int flag = 0;
+			scanf("%d", &flag);
+			if (flag) {
+				Astar();
+				cout << "--------使用Astart--------\n";
 			}
-			st.push(s);
+			else {
+				bfs();
+				cout << "--------使用BFS--------\n";
+			}			
 			toProcess(dst);
 		}
 		else {
@@ -230,11 +284,9 @@ int main()
 			waitKey(0);
 		}
 		destroyAllWindows();
-		init();
+		
 
 	}
-
-	
 
 	return 0;
 }
